@@ -30,7 +30,7 @@ fn main() {
 #[clap(version = "0.1", author = "Julian A. <jandrews271@gmail.com>")]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Options {
-    /// Serial port to connect to. Something like `/dev/tty/USB0` or `COM1`.
+    /// Serial port to connect to. Something like `/dev/ttyUSB0` or `COM1`.
     serial_port: String,
     #[clap(subcommand)]
     mode: Mode,
@@ -39,20 +39,25 @@ struct Options {
 #[derive(Clap, Debug, Clone, serde::Serialize)]
 #[repr(u8)]
 enum Mode {
+    /// Turn off the lights
+    Stop = 0,
     /// Cycle through the rainbow
-    CycleHues(CycleHuesOptions) = 0,
+    CycleHues(CycleHuesOptions) = 1,
     /// Pulse a specific hue
-    PulseHue(PulseHueOptions) = 1,
+    PulseHue(PulseHueOptions) = 2,
 }
 
 #[derive(Clap, Debug, Clone, serde::Serialize)]
 struct PulseHueOptions {
+    /// The hue to pulse. 0-65536. Circles the color wheel starting at red.
     hue: u32,
 }
 
 #[derive(Clap, Debug, Clone, serde::Serialize)]
 struct CycleHuesOptions {
+    /// How much of the color wheel to cycle per step.
     step: u32,
+    /// How long to wait between steps.
     wait: u16,
 }
 

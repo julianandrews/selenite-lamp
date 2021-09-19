@@ -22,8 +22,9 @@ struct CycleHuesState {
 };
 
 enum Mode {
-    CycleHues = 0,
-    PulseHue = 1,
+    Stop = 0,
+    CycleHues = 1,
+    PulseHue = 2,
     Unknown = 255,
 };
 
@@ -54,6 +55,11 @@ void loop() {
         read_state();
     }
     switch (state.mode) {
+        case Stop:
+            turnOff();
+            pixels.show();
+            delay(100);
+            break;
         case CycleHues:
             cycleHues();
             break;
@@ -61,12 +67,6 @@ void loop() {
             pulseHue(0.02, 32);
             break;
     }
-    /* case FastCycleHues: */
-    /*     cycleHues(32, 0); */
-    /*     break; */
-    /* case CrazyCycleHues: */
-    /*     cycleHues(256, 0); */
-    /*     break; */
 }
 
 void cycleHues() {
@@ -93,16 +93,25 @@ void setAllPixels(int hue, int saturation, int value) {
     }
 }
 
+void turnOff() {
+    for (int i = 0; i < pixels.numPixels(); ++i) {
+        pixels.setPixelColor(i, pixels.Color(0,0,0));
+    }
+}
+
 void read_state() {
     Mode mode = read_mode();
     switch (mode) {
+        case Stop:
+            state.mode = Stop;
+            break;
         case CycleHues:
             state.value.cycle_hues = { 0, read_uint32_t(), read_int() };
-            state.mode = mode;
+            state.mode = CycleHues;
             break;
         case PulseHue:
             state.value.pulse_hue =  { read_uint32_t(), 0.0 };
-            state.mode = mode;
+            state.mode = PulseHue;
             break;
         case Unknown:
             state.value.pulse_hue = { 0, 0.0 };
@@ -114,8 +123,10 @@ Mode read_mode() {
     uint32_t m = read_uint32_t();
     switch (m) {
         case 0:
-            return CycleHues;
+            return Stop;
         case 1:
+            return CycleHues;
+        case 2:
             return PulseHue;
         default:
             return Unknown;
