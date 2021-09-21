@@ -80,7 +80,7 @@ fn fix_hupcl(port_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     termios.c_cflag &= !termios::HUPCL;
     if hupcl_was_set {
         termios::tcsetattr(fd, termios::TCSANOW, &termios)?;
-        std::thread::sleep(std::time::Duration::from_millis(2000));
+        std::thread::sleep(std::time::Duration::from_millis(3000));
     }
     Ok(())
 }
