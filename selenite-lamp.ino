@@ -10,22 +10,24 @@
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
+enum Mode {
+    Stop = 0,
+    CycleHues = 1,
+    PulseHue = 2,
+    Unknown = 255,
+};
+
 struct PulseHueState {
     uint32_t hue;
     float theta;
+    float theta_step;
+    int wait;
 };
 
 struct CycleHuesState {
     uint32_t hue;
     uint32_t step;
     int wait;
-};
-
-enum Mode {
-    Stop = 0,
-    CycleHues = 1,
-    PulseHue = 2,
-    Unknown = 255,
 };
 
 struct State {
@@ -39,12 +41,8 @@ struct State {
 State state;
 
 void setup() {
-#if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
-    clock_prescale_set(clock_div_1);
-#endif
-
-    state.mode = PulseHue;
-    state.value.pulse_hue = { 40000 };
+    state.mode = CycleHues;
+    state.value.cycle_hues = { 50000, 1, 15 };
     Serial.begin(9600, SERIAL_8N1); // opens serial port, sets data rate to 9600 bps
     pixels.begin();
     while (!Serial) { ; }
@@ -56,17 +54,21 @@ void loop() {
     }
     switch (state.mode) {
         case Stop:
-            turnOff();
-            pixels.show();
-            delay(100);
+            stop();
             break;
         case CycleHues:
             cycleHues();
             break;
         case PulseHue:
-            pulseHue(0.02, 32);
+            pulseHue();
             break;
     }
+}
+
+void stop() {
+    turnOff();
+    pixels.show();
+    delay(100);
 }
 
 void cycleHues() {
@@ -76,15 +78,15 @@ void cycleHues() {
     delay(state.value.cycle_hues.wait);
 }
 
-void pulseHue(float theta_step, int wait) {
+void pulseHue() {
     int value = (int) (255.0 * sin(state.value.pulse_hue.theta));
     setAllPixels(state.value.pulse_hue.hue, 255, value);
-    state.value.pulse_hue.theta = (state.value.pulse_hue.theta + theta_step);
+    state.value.pulse_hue.theta = (state.value.pulse_hue.theta + state.value.pulse_hue.theta_step);
     if (state.value.pulse_hue.theta > PI) {
         state.value.pulse_hue.theta -= PI;
     }
     pixels.show();
-    delay(wait);
+    delay(state.value.pulse_hue.wait);
 }
 
 void setAllPixels(int hue, int saturation, int value) {
@@ -110,7 +112,7 @@ void read_state() {
             state.mode = CycleHues;
             break;
         case PulseHue:
-            state.value.pulse_hue =  { read_uint32_t(), 0.0 };
+            state.value.pulse_hue = { read_uint32_t(), 0.0, 0.02, 32 };
             state.mode = PulseHue;
             break;
         case Unknown:
