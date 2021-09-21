@@ -64,15 +64,25 @@ struct CycleHuesOptions {
 fn get_serial_port(
     port_name: &str,
 ) -> Result<Box<dyn serialport::SerialPort>, Box<dyn std::error::Error>> {
-    {
-        // TODO: Figure out how to open the connection at the other end before first write.
-        let file = std::fs::File::open(port_name)?;
-        let mut termios = termios::Termios::from_fd(file.as_raw_fd()).unwrap();
-        termios.c_cflag &= !termios::HUPCL;
-    }
+    fix_hupcl(port_name)?;
     let port = serialport::new(port_name, 9600).open()?;
-
     Ok(port)
+}
+
+fn fix_hupcl(port_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // If HUPCL is set, opening the serial port triggers a reset of the arduino. We can fix this by
+    // opening the file and unsetting HUPCL. The first time we do this the arduino will reset
+    // though so we have to wait long enough for the arduino to reboot if HUPCL was set.
+    let file = std::fs::File::open(port_name)?;
+    let fd = file.as_raw_fd();
+    let mut termios = termios::Termios::from_fd(fd)?;
+    let hupcl_was_set = termios.c_cflag & termios::HUPCL != 0;
+    termios.c_cflag &= !termios::HUPCL;
+    if hupcl_was_set {
+        termios::tcsetattr(fd, termios::TCSANOW, &termios)?;
+        std::thread::sleep(std::time::Duration::from_millis(2000));
+    }
+    Ok(())
 }
 
 fn serialize_data(mode: &Mode) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
