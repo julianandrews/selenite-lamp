@@ -28,6 +28,8 @@ impl Command {
 pub struct PulseHueOptions {
     /// The hue to pulse. 0-65536. Circles the color wheel starting at red.
     hue: u32,
+    /// The pulse period in milliseconds.
+    period: u16,
 }
 
 #[derive(Clap, Debug, Clone, serde::Serialize)]

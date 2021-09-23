@@ -20,8 +20,8 @@ enum Command {
 
 struct PulseHueState {
     uint32_t hue;
-    float theta;
-    float theta_step;
+    double theta;
+    double theta_step;
     int wait;
 };
 
@@ -44,14 +44,14 @@ State state;
 void setup() {
     state.command = CycleHues;
     state.value.cycle_hues = { 50000, 1, 15 };
-    Serial.begin(9600, SERIAL_8N1); // opens serial port, sets data rate to 9600 bps
+    Serial.begin(9600, SERIAL_8N1);
     pixels.begin();
     while (!Serial) { ; }
 }
 
 void loop() {
     if (Serial.available()) {
-        read_state();
+        process_command();
     }
     switch (state.command) {
         case Stop:
@@ -102,7 +102,7 @@ void turnOff() {
     }
 }
 
-void read_state() {
+void process_command() {
     switch (read_command()) {
         case Query:
             Serial.write(state.command);
@@ -115,13 +115,22 @@ void read_state() {
             state.command = CycleHues;
             break;
         case PulseHue:
-            state.value.pulse_hue = { read_uint32_t(), 0.0, 0.02, 32 };
-            state.command = PulseHue;
+            read_pulse_hue_state();
             break;
         case Unknown:
-            state.value.pulse_hue = { 0, 0.0 };
+            state.value.pulse_hue = { 0, 0.0, 0.2, 32 };
             state.command = PulseHue;
     }
+}
+
+void read_pulse_hue_state() {
+    uint32_t hue = read_uint32_t();
+    int period = read_int();
+    double theta = 0.0;
+    double step = 2.0 * PI / (double) period;
+    int wait = 2;
+    state.value.pulse_hue = { hue, theta, step, wait };
+    state.command = PulseHue;
 }
 
 Command read_command() {
