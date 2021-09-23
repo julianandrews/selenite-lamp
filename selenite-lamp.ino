@@ -10,10 +10,11 @@
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
-enum Mode {
-    Stop = 0,
-    CycleHues = 1,
-    PulseHue = 2,
+enum Command {
+    Query = 0,
+    Stop = 1,
+    CycleHues = 2,
+    PulseHue = 3,
     Unknown = 255,
 };
 
@@ -31,7 +32,7 @@ struct CycleHuesState {
 };
 
 struct State {
-    Mode mode;
+    Command command;
     union Value {
         PulseHueState pulse_hue;
         CycleHuesState cycle_hues;
@@ -41,7 +42,7 @@ struct State {
 State state;
 
 void setup() {
-    state.mode = CycleHues;
+    state.command = CycleHues;
     state.value.cycle_hues = { 50000, 1, 15 };
     Serial.begin(9600, SERIAL_8N1); // opens serial port, sets data rate to 9600 bps
     pixels.begin();
@@ -52,7 +53,7 @@ void loop() {
     if (Serial.available()) {
         read_state();
     }
-    switch (state.mode) {
+    switch (state.command) {
         case Stop:
             stop();
             break;
@@ -102,33 +103,37 @@ void turnOff() {
 }
 
 void read_state() {
-    Mode mode = read_mode();
-    switch (mode) {
+    switch (read_command()) {
+        case Query:
+            Serial.write(state.command);
+            break;
         case Stop:
-            state.mode = Stop;
+            state.command = Stop;
             break;
         case CycleHues:
             state.value.cycle_hues = { 0, read_uint32_t(), read_int() };
-            state.mode = CycleHues;
+            state.command = CycleHues;
             break;
         case PulseHue:
             state.value.pulse_hue = { read_uint32_t(), 0.0, 0.02, 32 };
-            state.mode = PulseHue;
+            state.command = PulseHue;
             break;
         case Unknown:
             state.value.pulse_hue = { 0, 0.0 };
-            state.mode = PulseHue;
+            state.command = PulseHue;
     }
 }
 
-Mode read_mode() {
+Command read_command() {
     uint32_t m = read_uint32_t();
     switch (m) {
         case 0:
-            return Stop;
+            return Query;
         case 1:
-            return CycleHues;
+            return Stop;
         case 2:
+            return CycleHues;
+        case 3:
             return PulseHue;
         default:
             return Unknown;
