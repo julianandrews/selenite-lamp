@@ -3,7 +3,7 @@ mod serial;
 
 use std::io::Write;
 
-use clap::{AppSettings, Clap};
+use clap::{crate_version, AppSettings, Clap};
 
 use commands::Command;
 
@@ -39,7 +39,7 @@ fn main() {
 }
 
 #[derive(Clap, Debug, Clone)]
-#[clap(version = "0.1", author = "Julian Andrews <jandrews271@gmail.com>")]
+#[clap(version = crate_version!(), author = "Julian Andrews <jandrews271@gmail.com>")]
 #[clap(setting = AppSettings::ColoredHelp)]
 pub struct Options {
     /// Serial port to connect to. Something like `/dev/ttyUSB0` or `COM1`.

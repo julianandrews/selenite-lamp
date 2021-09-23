@@ -29,13 +29,15 @@ pub struct PulseHueOptions {
     /// The hue to pulse. 0-65536. Circles the color wheel starting at red.
     hue: u32,
     /// The pulse period in milliseconds.
+    #[clap(default_value = "5000")]
     period: u16,
 }
 
 #[derive(Clap, Debug, Clone, serde::Serialize)]
 pub struct CycleHuesOptions {
-    /// How much of the color wheel to cycle per step.
-    step: u32,
     /// How long to wait between steps.
     wait: u16,
+    /// How much of the color wheel to cycle per step.
+    #[clap(default_value = "32")]
+    step: u32,
 }

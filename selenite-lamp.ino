@@ -111,8 +111,7 @@ void process_command() {
             state.command = Stop;
             break;
         case CycleHues:
-            state.value.cycle_hues = { 0, read_uint32_t(), read_int() };
-            state.command = CycleHues;
+            read_cycle_hues_state();
             break;
         case PulseHue:
             read_pulse_hue_state();
@@ -121,6 +120,15 @@ void process_command() {
             state.value.pulse_hue = { 0, 0.0, 0.2, 32 };
             state.command = PulseHue;
     }
+}
+
+void read_cycle_hues_state() {
+    uint32_t hue = 0;
+    int wait = read_int();
+    uint32_t step = read_uint32_t();
+
+    state.value.cycle_hues = { hue, step, wait };
+    state.command = CycleHues;
 }
 
 void read_pulse_hue_state() {
