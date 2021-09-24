@@ -189,18 +189,16 @@ void read_pulse_hue_state() {
 
 unsigned long read_ulong() {
     byte buffer[4] = {0, 0, 0, 0};
-    while (Serial.available() < 4) {}
-    Serial.readBytes(buffer, 4);
-    return ((unsigned long) buffer[3]) << 24
-        | ((unsigned long) buffer[2]) << 16
-        | ((unsigned long) buffer[1]) << 8
-        | ((unsigned long) buffer[0]) << 0;
+    unsigned int bytes_read = Serial.readBytes(buffer, 4);
+    return (unsigned long) buffer[3] << 24
+        | (unsigned long) buffer[2] << 16
+        | (unsigned long) buffer[1] << 8
+        | (unsigned long) buffer[0] << 0;
 }
 
 unsigned int read_uint() {
     byte buffer[2] = {0, 0};
-    while (Serial.available() < 2) {}
-    Serial.readBytes(buffer, 2);
-    return ((unsigned int) buffer[1]) << 8
-        | ((unsigned int) buffer[0]) << 0;
+    unsigned int bytes_read = Serial.readBytes(buffer, 2);
+    return (unsigned int) buffer[1] << 8
+        | (unsigned int) buffer[0] << 0;
 }
