@@ -47,6 +47,7 @@ fn main() {
 #[clap(setting = AppSettings::ColoredHelp)]
 pub struct Options {
     /// Serial port to connect to. Something like `/dev/ttyUSB0` or `COM1`.
+    #[clap(env = "SELENITE_PORT")]
     pub serial_port: String,
     /// Print verbose output.
     #[clap(short, long)]
