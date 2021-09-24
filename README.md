@@ -11,7 +11,7 @@ to get the vendor id and product id of the device. Then write a file like:
 ```
 /etc/udev/rules.d
 
-SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="selenite-lamp"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="selenite-lamp", RUN+="/bin/stty -F /dev/selenite-lamp -hupcl"
 ```
 
 Finally run:
