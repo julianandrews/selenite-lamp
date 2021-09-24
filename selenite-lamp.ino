@@ -4,9 +4,10 @@
 #endif
 #define PIN             2
 #define NUMPIXELS       7
-#define BRIGHTNESS      255
-#define RAINBOW_SIZE    65536
+#define MAX_STEPS       1000
+#define RAINBOW_SIZE    65535
 #define PI              3.141592653
+#define STOP_DELAY      100
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
@@ -18,17 +19,33 @@ enum Command {
     Unknown = 255,
 };
 
+Command read_command() {
+    unsigned long m = read_ulong();
+    switch (m) {
+        case 0:
+            return Query;
+        case 1:
+            return Stop;
+        case 2:
+            return CycleHues;
+        case 3:
+            return PulseHue;
+        default:
+            return Unknown;
+    }
+}
+
 struct PulseHueState {
-    uint32_t hue;
+    unsigned int hue;
     double theta;
     double theta_step;
-    int wait;
+    unsigned long wait;
 };
 
 struct CycleHuesState {
-    uint32_t hue;
-    uint32_t step;
-    int wait;
+    unsigned int hue;
+    unsigned long step;
+    unsigned long wait;
 };
 
 struct State {
@@ -39,14 +56,19 @@ struct State {
     } value;
 };
 
-State state;
+State state = {
+    CycleHues,
+    .value = { .cycle_hues = { 50000, 1, 15 }}
+};
+
+const State ERROR_STATE = {
+    PulseHue,
+    .value = { .pulse_hue = { 0, 0.0, 0.2, 32 } }
+};
 
 void setup() {
-    state.command = CycleHues;
-    state.value.cycle_hues = { 50000, 1, 15 };
     Serial.begin(9600, SERIAL_8N1);
     pixels.begin();
-    while (!Serial) { ; }
 }
 
 void loop() {
@@ -69,12 +91,12 @@ void loop() {
 void stop() {
     turnOff();
     pixels.show();
-    delay(100);
+    delay(STOP_DELAY);
 }
 
 void cycleHues() {
     setAllPixels(state.value.cycle_hues.hue, 255, 255);
-    state.value.cycle_hues.hue = (state.value.cycle_hues.hue + state.value.cycle_hues.step) % RAINBOW_SIZE;
+    state.value.cycle_hues.hue = state.value.cycle_hues.hue + state.value.cycle_hues.step;
     pixels.show();
     delay(state.value.cycle_hues.wait);
 }
@@ -117,54 +139,68 @@ void process_command() {
             read_pulse_hue_state();
             break;
         case Unknown:
-            state.value.pulse_hue = { 0, 0.0, 0.2, 32 };
-            state.command = PulseHue;
+            state = ERROR_STATE;
     }
 }
 
 void read_cycle_hues_state() {
-    uint32_t hue = 0;
-    int wait = read_int();
-    uint32_t step = read_uint32_t();
+    unsigned long period = read_ulong();
+    if (period == 0) {
+        state.command = Stop;
+        return;
+    }
+
+    unsigned int hue = 0;
+    unsigned long step;
+    unsigned long wait;
+    if (period < MAX_STEPS) {
+        step = RAINBOW_SIZE / period;
+        wait = 1;
+    } else {
+        step = RAINBOW_SIZE / MAX_STEPS;
+        wait = period / MAX_STEPS;
+    }
 
     state.value.cycle_hues = { hue, step, wait };
     state.command = CycleHues;
 }
 
 void read_pulse_hue_state() {
-    uint32_t hue = read_uint32_t();
-    int period = read_int();
+    unsigned int hue = read_uint();
+    unsigned long period = read_ulong();
+    if (period == 0) {
+        state.command = Stop;
+        return;
+    }
+
     double theta = 0.0;
-    double step = 2.0 * PI / (double) period;
-    int wait = 2;
+    double step;
+    unsigned long wait;
+    if (period < MAX_STEPS) {
+        step = PI / (double) period;
+        wait = 1;
+    } else {
+        step = PI / MAX_STEPS;
+        wait = period / MAX_STEPS;
+    }
     state.value.pulse_hue = { hue, theta, step, wait };
     state.command = PulseHue;
 }
 
-Command read_command() {
-    uint32_t m = read_uint32_t();
-    switch (m) {
-        case 0:
-            return Query;
-        case 1:
-            return Stop;
-        case 2:
-            return CycleHues;
-        case 3:
-            return PulseHue;
-        default:
-            return Unknown;
-    }
-}
-
-uint32_t read_uint32_t() {
+unsigned long read_ulong() {
     byte buffer[4] = {0, 0, 0, 0};
+    while (Serial.available() < 4) {}
     Serial.readBytes(buffer, 4);
-    return buffer[3] << 24 | buffer[2] << 16 | buffer[1] << 8 | buffer[0] << 0;
+    return ((unsigned long) buffer[3]) << 24
+        | ((unsigned long) buffer[2]) << 16
+        | ((unsigned long) buffer[1]) << 8
+        | ((unsigned long) buffer[0]) << 0;
 }
 
-int read_int() {
+unsigned int read_uint() {
     byte buffer[2] = {0, 0};
+    while (Serial.available() < 2) {}
     Serial.readBytes(buffer, 2);
-    return buffer[1] << 8 | buffer[0] << 0;
+    return ((unsigned int) buffer[1]) << 8
+        | ((unsigned int) buffer[0]) << 0;
 }
