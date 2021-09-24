@@ -16,6 +16,10 @@ fn main() {
             std::process::exit(1);
         }
     };
+    if opts.verbose {
+        let numbers: Vec<_> = serialized.iter().map(|b| b.to_string()).collect();
+        println!("Sending command: {}", numbers.join(","));
+    }
     let mut port = match serial::get_serial_port(&opts.serial_port) {
         Ok(port) => port,
         Err(error) => {
@@ -44,6 +48,9 @@ fn main() {
 pub struct Options {
     /// Serial port to connect to. Something like `/dev/ttyUSB0` or `COM1`.
     pub serial_port: String,
+    /// Print verbose output.
+    #[clap(short, long)]
+    pub verbose: bool,
     #[clap(subcommand)]
     pub command: Command,
 }
