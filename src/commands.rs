@@ -16,6 +16,8 @@ pub enum Command {
     CycleHues(CycleHuesOptions) = 2,
     /// Pulse a specific hue
     PulseHue(PulseHueOptions) = 3,
+    /// Output bash completions
+    BashCompletion,
 }
 
 impl Command {

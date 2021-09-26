@@ -9,6 +9,16 @@ use commands::Command;
 
 fn main() {
     let opts = Options::parse();
+    if let Command::BashCompletion = opts.command {
+        use clap::IntoApp;
+        use clap_generate::generators::Bash;
+        clap_generate::generate::<Bash, _>(
+            &mut Options::into_app(),
+            "selenite-lamp",
+            &mut std::io::stdout(),
+        );
+        return;
+    }
     let serialized: Vec<u8> = match opts.command.serialize() {
         Ok(data) => data,
         Err(error) => {
