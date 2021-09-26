@@ -20,8 +20,7 @@ enum Command {
 };
 
 Command read_command() {
-    unsigned long m = read_ulong();
-    switch (m) {
+    switch (read<unsigned long>()) {
         case 0:
             return Query;
         case 1:
@@ -173,12 +172,20 @@ void process_command() {
 }
 
 void write_query_response() {
-    // TODO - use a write method that times out and handle error.
-    Serial.write(state.command);
+    write<unsigned long>((unsigned long) state.command);
+    switch (state.command) {
+        case CycleHues:
+            write<unsigned long>(state.value.cycle_hues.options.period);
+            break;
+        case PulseHue:
+            write<unsigned int>(state.value.pulse_hue.options.hue);
+            write<unsigned long>(state.value.pulse_hue.options.period);
+            break;
+    }
 }
 
 void read_cycle_hues_state() {
-    unsigned long period = read_ulong();
+    unsigned long period = read<unsigned long>();
     if (period == 0) {
         state.command = Stop;
         return;
@@ -190,8 +197,8 @@ void read_cycle_hues_state() {
 }
 
 void read_pulse_hue_state() {
-    unsigned int hue = read_uint();
-    unsigned long period = read_ulong();
+    unsigned int hue = read<unsigned int>();
+    unsigned long period = read<unsigned long>();
     if (period == 0) {
         state.command = Stop;
         return;
@@ -201,18 +208,24 @@ void read_pulse_hue_state() {
     state.command = PulseHue;
 }
 
-unsigned long read_ulong() {
-    byte buffer[4] = {0, 0, 0, 0};
-    unsigned int bytes_read = Serial.readBytes(buffer, 4);
-    return (unsigned long) buffer[3] << 24
-        | (unsigned long) buffer[2] << 16
-        | (unsigned long) buffer[1] << 8
-        | (unsigned long) buffer[0] << 0;
+// Write a little-endian value
+template <typename T>
+void write(T value) {
+    union {
+        byte buffer[sizeof(T)];
+        T value;
+    } data;
+    data.value = value;
+    unsigned int bytes_written = Serial.write(data.buffer, sizeof(T));
 }
 
-unsigned int read_uint() {
-    byte buffer[2] = {0, 0};
-    unsigned int bytes_read = Serial.readBytes(buffer, 2);
-    return (unsigned int) buffer[1] << 8
-        | (unsigned int) buffer[0] << 0;
+// Read a little-endian value
+template <typename T>
+T read() {
+    union {
+        byte buffer[sizeof(T)];
+        T value;
+    } data;
+    unsigned int bytes_read = Serial.readBytes(data.buffer, sizeof(T));
+    return data.value;
 }

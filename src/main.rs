@@ -3,7 +3,7 @@ mod serial;
 
 use std::io::Write;
 
-use clap::{crate_version, AppSettings, Clap};
+use clap::{crate_authors, crate_version, AppSettings, Clap};
 
 use commands::Command;
 
@@ -32,8 +32,8 @@ fn main() {
         std::process::exit(1);
     }
     if let Command::Query = opts.command {
-        match serial::read_byte(port) {
-            Ok(b) => println!("{:?}", b),
+        match Command::read(port) {
+            Ok(command) => println!("{}", serde_json::to_string(&command).unwrap()),
             Err(error) => {
                 eprintln!("Query failed: {}", error);
                 std::process::exit(1);
@@ -43,7 +43,7 @@ fn main() {
 }
 
 #[derive(Clap, Debug, Clone)]
-#[clap(version = crate_version!(), author = "Julian Andrews <jandrews271@gmail.com>")]
+#[clap(version = crate_version!(), author = crate_authors!())]
 #[clap(setting = AppSettings::ColoredHelp)]
 pub struct Options {
     /// Serial port to connect to. Something like `/dev/ttyUSB0` or `COM1`.
