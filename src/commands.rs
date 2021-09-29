@@ -8,15 +8,17 @@ use clap::{AppSettings, Clap};
 #[serde(rename_all = "kebab-case")]
 #[repr(u8)]
 pub enum Command {
+    #[clap(setting = AppSettings::Hidden)]
+    Error(ErrorOptions) = 0,
     /// Query the current command state
-    Query = 0,
+    Query = 1,
     /// Turn off the lights
-    Stop(StopOptions) = 1,
+    Stop(StopOptions) = 2,
     /// Cycle through the rainbow
-    CycleHues(CycleHuesOptions) = 2,
+    CycleHues(CycleHuesOptions) = 3,
     /// Pulse a specific hue
-    PulseHue(PulseHueOptions) = 3,
-    /// Output bash completions
+    PulseHue(PulseHueOptions) = 4,
+    #[clap(setting = AppSettings::Hidden)]
     BashCompletion,
 }
 
@@ -53,4 +55,9 @@ pub struct CycleHuesOptions {
     /// The cycle period in milliseconds.
     #[clap(default_value = "5000")]
     period: u32,
+}
+
+#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ErrorOptions {
+    error_code: u16,
 }

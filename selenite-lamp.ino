@@ -2,6 +2,7 @@
 #ifdef __AVR__
   #include <avr/power.h>
 #endif
+
 #define PIN             2
 #define NUMPIXELS       7
 #define MAX_DELAY       20
@@ -10,26 +11,40 @@
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
-enum Command {
-    Query = 0,
-    Stop = 1,
-    CycleHues = 2,
-    PulseHue = 3,
-    Unknown = 255,
+enum class Command {
+    Error = 0,
+    Query = 1,
+    Stop = 2,
+    CycleHues = 3,
+    PulseHue = 4,
 };
 
-Command read_command() {
-    switch (read<unsigned long>()) {
+enum class Error {
+    ReadError = 1,
+    WriteError = 2,
+    ZeroPeriodError = 4,
+};
+
+unsigned int operator|=(unsigned int &a, Error b) {
+    return a = (a | static_cast<unsigned int>(b));
+}
+
+Command read_command(unsigned int *error) {
+    auto command = read<unsigned long>(error);
+    if (*error) {
+        command = 0;
+    }
+    switch (command) {
         case 0:
-            return Query;
+            return Command::Error;
         case 1:
-            return Stop;
+            return Command::Query;
         case 2:
-            return CycleHues;
+            return Command::Stop;
         case 3:
-            return PulseHue;
-        default:
-            return Unknown;
+            return Command::CycleHues;
+        case 4:
+            return Command::PulseHue;
     }
 }
 
@@ -52,11 +67,21 @@ struct CycleHuesState {
     CycleHueOptions options;
 };
 
+struct ErrorOptions {
+    unsigned int error;
+};
+
+struct ErrorState {
+    double theta;
+    ErrorOptions options;
+};
+
 struct State {
     Command command;
     union Value {
         PulseHueState pulse_hue;
         CycleHuesState cycle_hues;
+        ErrorState error;
     } value;
 };
 
@@ -84,13 +109,8 @@ struct CycleSteps get_cycle_steps(unsigned long period) {
 }
 
 State state = {
-    CycleHues,
+    Command::CycleHues,
     .value = { .cycle_hues = { 4.79, { 3600000 } } },
-};
-
-const State ERROR_STATE = {
-    PulseHue,
-    .value = { .pulse_hue = { 0, { 0, 1000 } } },
 };
 
 void setup() {
@@ -103,14 +123,17 @@ void loop() {
         process_command();
     }
     switch (state.command) {
-        case Stop:
+        case Command::Stop:
             stop();
             break;
-        case CycleHues:
+        case Command::CycleHues:
             cycleHues();
             break;
-        case PulseHue:
+        case Command::PulseHue:
             pulseHue();
+            break;
+        case Command::Error:
+            error();
             break;
     }
 }
@@ -139,9 +162,22 @@ void pulseHue() {
 
     unsigned int value = 255.0 * sin(state.value.pulse_hue.theta / 2);
     setAllPixels(state.value.pulse_hue.options.hue, 255, value);
-    state.value.pulse_hue.theta = (state.value.pulse_hue.theta + steps.step);
+    state.value.pulse_hue.theta += steps.step;
     while (state.value.pulse_hue.theta > TAU) {
         state.value.pulse_hue.theta -= TAU;
+    }
+    pixels.show();
+    delay(steps.wait);
+}
+
+void error() {
+    CycleSteps steps = get_cycle_steps(1000);
+
+    unsigned int value = 255.0 * sin(state.value.error.theta / 2);
+    setAllPixels(0, 255, value);
+    state.value.error.theta += steps.step;
+    while (state.value.error.theta > TAU) {
+        state.value.error.theta -= TAU;
     }
     pixels.show();
     delay(steps.wait);
@@ -160,80 +196,99 @@ void turnOff() {
 }
 
 void process_command() {
-    Command command = read_command();
-    switch (command) {
-        case Query:
-            write_query_response();
-            break;
-        case Stop:
-            state.command = Stop;
-            break;
-        case CycleHues:
-            read_cycle_hues_state();
-            break;
-        case PulseHue:
-            read_pulse_hue_state();
-            break;
-        default:
-            state = ERROR_STATE;
+    unsigned int error = 0;
+    Command command = read_command(&error);
+    if (!error) {
+        switch (command) {
+            case Command::Query:
+                write_query_response(&error);
+                break;
+            case Command::Stop:
+                state.command = Command::Stop;
+                break;
+            case Command::CycleHues:
+                read_cycle_hues_state(&error);
+                break;
+            case Command::PulseHue:
+                read_pulse_hue_state(&error);
+                break;
+        }
+    }
+    if (error) {
+        state.value.error = { 0, { error } };
+        state.command = Command::Error;
     }
 }
 
-void write_query_response() {
-    write<unsigned long>((unsigned long) state.command);
+void write_query_response(unsigned int *error) {
+    write<unsigned long>((unsigned long) state.command, error);
     switch (state.command) {
-        case CycleHues:
-            write<unsigned long>(state.value.cycle_hues.options.period);
+        case Command::CycleHues:
+            write<unsigned long>(state.value.cycle_hues.options.period, error);
             break;
-        case PulseHue:
-            write<unsigned int>(state.value.pulse_hue.options.hue);
-            write<unsigned long>(state.value.pulse_hue.options.period);
+        case Command::PulseHue:
+            write<unsigned int>(state.value.pulse_hue.options.hue, error);
+            write<unsigned long>(state.value.pulse_hue.options.period, error);
             break;
+        case Command::Error:
+            write<unsigned int>(state.value.error.options.error, error);
+            break;
+
     }
 }
 
-void read_cycle_hues_state() {
-    unsigned long period = read<unsigned long>();
+void read_cycle_hues_state(unsigned int *error) {
+    unsigned long period = read<unsigned long>(error);
     if (period == 0) {
-        state.command = Stop;
+        *error |= Error::ZeroPeriodError;
+    }
+    if (*error) {
         return;
     }
 
     double theta = 0;
     state.value.cycle_hues = { theta, { period } };
-    state.command = CycleHues;
+    state.command = Command::CycleHues;
 }
 
-void read_pulse_hue_state() {
-    unsigned int hue = read<unsigned int>();
-    unsigned long period = read<unsigned long>();
+void read_pulse_hue_state(unsigned int *error) {
+    unsigned int hue = read<unsigned int>(error);
+    unsigned long period = read<unsigned long>(error);
     if (period == 0) {
-        state.command = Stop;
+        *error |= Error::ZeroPeriodError;
+    }
+    if (*error) {
         return;
     }
 
     state.value.pulse_hue = { 0.0, { hue, period } };
-    state.command = PulseHue;
+    state.command = Command::PulseHue;
 }
 
 // Write a little-endian value
 template <typename T>
-void write(T value) {
+void write(T value, unsigned int *error) {
     union {
         byte buffer[sizeof(T)];
         T value;
     } data;
     data.value = value;
     unsigned int bytes_written = Serial.write(data.buffer, sizeof(T));
+    if (bytes_written != sizeof(T)) {
+        *error |= Error::WriteError;
+    }
 }
 
 // Read a little-endian value
 template <typename T>
-T read() {
+T read(unsigned int *error) {
     union {
         byte buffer[sizeof(T)];
         T value;
     } data;
     unsigned int bytes_read = Serial.readBytes(data.buffer, sizeof(T));
+    if (bytes_read != sizeof(T)) {
+        *error |= Error::ReadError;
+    }
     return data.value;
 }
