@@ -4,10 +4,9 @@
 #endif
 #define PIN             2
 #define NUMPIXELS       7
-#define MAX_STEPS       1000
-#define RAINBOW_SIZE    65535
-#define PI              3.141592653
-#define STOP_DELAY      100
+#define MAX_DELAY       20
+#define TARGET_STEPS    1000
+#define TAU             6.283185
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
@@ -49,7 +48,7 @@ struct CycleHueOptions {
 };
 
 struct CycleHuesState {
-    unsigned int hue;
+    double theta;
     CycleHueOptions options;
 };
 
@@ -61,9 +60,32 @@ struct State {
     } value;
 };
 
+struct CycleSteps {
+    double step;
+    unsigned long wait;
+};
+
+struct CycleSteps get_cycle_steps(unsigned long period) {
+    double step;
+    unsigned long wait;
+    if (period > TARGET_STEPS * MAX_DELAY) {
+        // Period is long, wait the maximum.
+        step = TAU * MAX_DELAY / (double) period;
+        wait = MAX_DELAY;
+    } else if (period < TARGET_STEPS) {
+        // Period is short, wait the minimum.
+        step = TAU / (double) period;
+        wait = 1;
+    } else {
+        step = TAU / TARGET_STEPS;
+        wait = period / TARGET_STEPS;
+    }
+    return CycleSteps { step, wait };
+}
+
 State state = {
     CycleHues,
-    .value = { .cycle_hues = { 50000, { 3600000 } } },
+    .value = { .cycle_hues = { 4.79, { 3600000 } } },
 };
 
 const State ERROR_STATE = {
@@ -96,57 +118,43 @@ void loop() {
 void stop() {
     turnOff();
     pixels.show();
-    delay(STOP_DELAY);
+    delay(MAX_DELAY);
 }
 
 void cycleHues() {
-    unsigned long period = state.value.cycle_hues.options.period;
-    unsigned long step;
-    unsigned long wait;
-    if (period < MAX_STEPS) {
-        step = RAINBOW_SIZE / period;
-        wait = 1;
-    } else {
-        step = RAINBOW_SIZE / MAX_STEPS;
-        wait = period / MAX_STEPS;
-    }
+    CycleSteps steps = get_cycle_steps(state.value.cycle_hues.options.period);
 
-    setAllPixels(state.value.cycle_hues.hue, 255, 255);
-    state.value.cycle_hues.hue = state.value.cycle_hues.hue + step;
+    unsigned int hue = UINT16_MAX * (state.value.cycle_hues.theta / TAU);
+    setAllPixels(hue, 255, 255);
+    state.value.cycle_hues.theta += steps.step;
+    while (state.value.cycle_hues.theta > TAU) {
+        state.value.cycle_hues.theta -= TAU;
+    }
     pixels.show();
-    delay(wait);
+    delay(steps.wait);
 }
 
 void pulseHue() {
-    unsigned long period = state.value.pulse_hue.options.period;
-    double step;
-    unsigned long wait;
-    if (period < MAX_STEPS) {
-        step = PI / (double) period;
-        wait = 1;
-    } else {
-        step = PI / MAX_STEPS;
-        wait = period / MAX_STEPS;
-    }
+    CycleSteps steps = get_cycle_steps(state.value.pulse_hue.options.period);
 
-    int value = (int) (255.0 * sin(state.value.pulse_hue.theta));
+    unsigned int value = 255.0 * sin(state.value.pulse_hue.theta / 2);
     setAllPixels(state.value.pulse_hue.options.hue, 255, value);
-    state.value.pulse_hue.theta = (state.value.pulse_hue.theta + step);
-    if (state.value.pulse_hue.theta > PI) {
-        state.value.pulse_hue.theta -= PI;
+    state.value.pulse_hue.theta = (state.value.pulse_hue.theta + steps.step);
+    while (state.value.pulse_hue.theta > TAU) {
+        state.value.pulse_hue.theta -= TAU;
     }
     pixels.show();
-    delay(wait);
+    delay(steps.wait);
 }
 
-void setAllPixels(int hue, int saturation, int value) {
-    for (int i = 0; i < pixels.numPixels(); ++i) {
+void setAllPixels(unsigned int hue, unsigned int saturation, unsigned int value) {
+    for (unsigned int i = 0; i < pixels.numPixels(); ++i) {
         pixels.setPixelColor(i, pixels.gamma32(pixels.ColorHSV(hue, saturation, value)));
     }
 }
 
 void turnOff() {
-    for (int i = 0; i < pixels.numPixels(); ++i) {
+    for (unsigned int i = 0; i < pixels.numPixels(); ++i) {
         pixels.setPixelColor(i, pixels.Color(0,0,0));
     }
 }
@@ -191,8 +199,8 @@ void read_cycle_hues_state() {
         return;
     }
 
-    unsigned int hue = 0;
-    state.value.cycle_hues = { hue, { period } };
+    double theta = 0;
+    state.value.cycle_hues = { theta, { period } };
     state.command = CycleHues;
 }
 
