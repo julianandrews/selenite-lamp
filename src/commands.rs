@@ -18,6 +18,8 @@ pub enum Command {
     CycleHues(CycleHuesOptions) = 3,
     /// Pulse a specific hue
     PulseHue(PulseHueOptions) = 4,
+    /// Show a specific RGB color
+    ShowRGB(ShowRGBOptions) = 5,
     #[clap(setting = AppSettings::Hidden)]
     BashCompletion,
 }
@@ -56,6 +58,16 @@ pub struct CycleHuesOptions {
     #[clap(default_value = "5000")]
     period: u32,
 }
+
+#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ShowRGBOptions {
+    red: u8,
+    green: u8,
+    blue: u8,
+}
+
+#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct Color {}
 
 #[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ErrorOptions {

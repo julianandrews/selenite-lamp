@@ -17,6 +17,7 @@ enum class Command {
     Stop = 2,
     CycleHues = 3,
     PulseHue = 4,
+    ShowRGB = 5,
 };
 
 enum class Error {
@@ -29,7 +30,7 @@ unsigned int operator|=(unsigned int &a, Error b) {
     return a = (a | static_cast<unsigned int>(b));
 }
 
-Command read_command(unsigned int *error) {
+Command readCommand(unsigned int *error) {
     auto command = read<unsigned long>(error);
     if (*error) {
         command = 0;
@@ -45,8 +46,20 @@ Command read_command(unsigned int *error) {
             return Command::CycleHues;
         case 4:
             return Command::PulseHue;
+        case 5:
+            return Command::ShowRGB;
     }
 }
+
+struct ShowRGBOptions {
+    byte red;
+    byte green;
+    byte blue;
+};
+
+struct ShowRGBState {
+    ShowRGBOptions options;
+};
 
 struct PulseHueOptions {
     unsigned int hue;
@@ -79,6 +92,7 @@ struct ErrorState {
 struct State {
     Command command;
     union Value {
+        ShowRGBState show_rgb;
         PulseHueState pulse_hue;
         CycleHuesState cycle_hues;
         ErrorState error;
@@ -120,7 +134,7 @@ void setup() {
 
 void loop() {
     if (Serial.available()) {
-        process_command();
+        processCommand();
     }
     switch (state.command) {
         case Command::Stop:
@@ -131,6 +145,9 @@ void loop() {
             break;
         case Command::PulseHue:
             pulseHue();
+            break;
+        case Command::ShowRGB:
+            showRGB();
             break;
         case Command::Error:
             error();
@@ -170,6 +187,18 @@ void pulseHue() {
     delay(steps.wait);
 }
 
+void showRGB() {
+    for (unsigned int i = 0; i < pixels.numPixels(); ++i) {
+        unsigned long color = pixels.Color(
+            state.value.show_rgb.options.red,
+            state.value.show_rgb.options.green,
+            state.value.show_rgb.options.blue
+        );
+        pixels.setPixelColor(i, color);
+    }
+    pixels.show();
+}
+
 void error() {
     CycleSteps steps = get_cycle_steps(1000);
 
@@ -195,22 +224,25 @@ void turnOff() {
     }
 }
 
-void process_command() {
+void processCommand() {
     unsigned int error = 0;
-    Command command = read_command(&error);
+    Command command = readCommand(&error);
     if (!error) {
         switch (command) {
             case Command::Query:
-                write_query_response(&error);
+                writeQueryResponse(&error);
                 break;
             case Command::Stop:
                 state.command = Command::Stop;
                 break;
             case Command::CycleHues:
-                read_cycle_hues_state(&error);
+                readCycleHuesState(&error);
                 break;
             case Command::PulseHue:
-                read_pulse_hue_state(&error);
+                readPulseHueState(&error);
+                break;
+            case Command::ShowRGB:
+                readShowRGBState(&error);
                 break;
         }
     }
@@ -220,7 +252,7 @@ void process_command() {
     }
 }
 
-void write_query_response(unsigned int *error) {
+void writeQueryResponse(unsigned int *error) {
     write<unsigned long>((unsigned long) state.command, error);
     switch (state.command) {
         case Command::CycleHues:
@@ -230,6 +262,11 @@ void write_query_response(unsigned int *error) {
             write<unsigned int>(state.value.pulse_hue.options.hue, error);
             write<unsigned long>(state.value.pulse_hue.options.period, error);
             break;
+        case Command::ShowRGB:
+            write<byte>(state.value.show_rgb.options.red, error);
+            write<byte>(state.value.show_rgb.options.green, error);
+            write<byte>(state.value.show_rgb.options.blue, error);
+            break;
         case Command::Error:
             write<unsigned int>(state.value.error.options.error, error);
             break;
@@ -237,7 +274,7 @@ void write_query_response(unsigned int *error) {
     }
 }
 
-void read_cycle_hues_state(unsigned int *error) {
+void readCycleHuesState(unsigned int *error) {
     unsigned long period = read<unsigned long>(error);
     if (period == 0) {
         *error |= Error::ZeroPeriodError;
@@ -251,7 +288,7 @@ void read_cycle_hues_state(unsigned int *error) {
     state.command = Command::CycleHues;
 }
 
-void read_pulse_hue_state(unsigned int *error) {
+void readPulseHueState(unsigned int *error) {
     unsigned int hue = read<unsigned int>(error);
     unsigned long period = read<unsigned long>(error);
     if (period == 0) {
@@ -263,6 +300,20 @@ void read_pulse_hue_state(unsigned int *error) {
 
     state.value.pulse_hue = { 0.0, { hue, period } };
     state.command = Command::PulseHue;
+}
+
+void readShowRGBState(unsigned int *error) {
+    byte red = read<byte>(error);
+    byte green = read<byte>(error);
+    byte blue = read<byte>(error);
+    if (*error) {
+        return;
+    }
+
+    state.value.show_rgb.options.red = red;
+    state.value.show_rgb.options.green = green;
+    state.value.show_rgb.options.blue = blue;
+    state.command = Command::ShowRGB;
 }
 
 // Write a little-endian value
