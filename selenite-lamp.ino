@@ -8,6 +8,7 @@
 #define MAX_DELAY       20
 #define TARGET_STEPS    1000
 #define TAU             6.283185
+#define GLEAM_GROUPS    4
 
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
@@ -18,6 +19,7 @@ enum class Command {
     CycleHues = 3,
     PulseHue = 4,
     ShowRGB = 5,
+    Gleam = 6,
 };
 
 enum class Error {
@@ -48,6 +50,8 @@ Command readCommand(unsigned int *error) {
             return Command::PulseHue;
         case 5:
             return Command::ShowRGB;
+        case 6:
+            return Command::Gleam;
     }
 }
 
@@ -80,6 +84,17 @@ struct CycleHuesState {
     CycleHueOptions options;
 };
 
+struct GleamOptions {
+    unsigned long period;
+    unsigned long rate;
+};
+
+struct GleamState {
+    double theta[GLEAM_GROUPS];
+    unsigned int hue[GLEAM_GROUPS];
+    GleamOptions options;
+};
+
 struct ErrorOptions {
     unsigned int error;
 };
@@ -95,6 +110,7 @@ struct State {
         ShowRGBState show_rgb;
         PulseHueState pulse_hue;
         CycleHuesState cycle_hues;
+        GleamState gleam;
         ErrorState error;
     } value;
 };
@@ -149,6 +165,9 @@ void loop() {
         case Command::ShowRGB:
             showRGB();
             break;
+        case Command::Gleam:
+            gleam();
+            break;
         case Command::Error:
             error();
             break;
@@ -199,6 +218,24 @@ void showRGB() {
     pixels.show();
 }
 
+void gleam() {
+    CycleSteps steps = get_cycle_steps(state.value.gleam.options.period);
+    for (int i = 0; i < NUMPIXELS; ++i) {
+        unsigned int hue = state.value.gleam.hue[i % GLEAM_GROUPS];
+        unsigned int value = 255.0 * sin(state.value.gleam.theta[i % GLEAM_GROUPS] / 2);
+        pixels.setPixelColor(i, pixels.ColorHSV(hue, 255, value));
+        if (state.value.gleam.theta[i % GLEAM_GROUPS] || random(state.value.gleam.options.rate) == 0) {
+            state.value.gleam.theta[i % GLEAM_GROUPS] += steps.step;
+        }
+        if (state.value.gleam.theta[i % GLEAM_GROUPS] > TAU) {
+            state.value.gleam.hue[i % GLEAM_GROUPS] = random(UINT16_MAX);
+            state.value.gleam.theta[i % GLEAM_GROUPS] = 0;
+        }
+    }
+    pixels.show();
+    delay(steps.wait);
+}
+
 void error() {
     CycleSteps steps = get_cycle_steps(1000);
 
@@ -244,6 +281,9 @@ void processCommand() {
             case Command::ShowRGB:
                 readShowRGBState(&error);
                 break;
+            case Command::Gleam:
+                readGleamState(&error);
+                break;
         }
     }
     if (error) {
@@ -266,6 +306,10 @@ void writeQueryResponse(unsigned int *error) {
             write<byte>(state.value.show_rgb.options.red, error);
             write<byte>(state.value.show_rgb.options.green, error);
             write<byte>(state.value.show_rgb.options.blue, error);
+            break;
+        case Command::Gleam:
+            write<unsigned long>(state.value.gleam.options.period, error);
+            write<unsigned long>(state.value.gleam.options.rate, error);
             break;
         case Command::Error:
             write<unsigned int>(state.value.error.options.error, error);
@@ -314,6 +358,20 @@ void readShowRGBState(unsigned int *error) {
     state.value.show_rgb.options.green = green;
     state.value.show_rgb.options.blue = blue;
     state.command = Command::ShowRGB;
+}
+
+void readGleamState(unsigned int *error) {
+    unsigned long period = read<unsigned long>(error);
+    unsigned long rate = read<unsigned long>(error);
+    if (*error) {
+        return;
+    }
+    for (int i = 0; i < GLEAM_GROUPS; ++i) {
+        state.value.gleam.theta[i] = 0;
+        state.value.gleam.hue[i] = random(UINT16_MAX);
+    }
+    state.value.gleam.options = { period, rate };
+    state.command = Command::Gleam;
 }
 
 // Write a little-endian value

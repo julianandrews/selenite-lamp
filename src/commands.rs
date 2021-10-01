@@ -20,6 +20,8 @@ pub enum Command {
     PulseHue(PulseHueOptions) = 4,
     /// Show a specific RGB color
     ShowRGB(ShowRGBOptions) = 5,
+    /// Gleam
+    Gleam(GleamOptions) = 6,
     #[clap(setting = AppSettings::Hidden)]
     BashCompletion,
 }
@@ -64,6 +66,16 @@ pub struct ShowRGBOptions {
     red: u8,
     green: u8,
     blue: u8,
+}
+
+#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct GleamOptions {
+    /// The cycle period in milliseconds.
+    #[clap(default_value = "10000")]
+    period: u32,
+    /// The inverse probability of a pulse starting.
+    #[clap(default_value = "500")]
+    rate: u32,
 }
 
 #[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
