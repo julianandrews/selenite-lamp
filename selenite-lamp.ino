@@ -68,10 +68,12 @@ struct ShowRGBState {
 struct PulseHueOptions {
     unsigned int hue;
     unsigned long period;
+    unsigned long wait;
 };
 
 struct PulseHueState {
     double theta;
+    unsigned long wait_left;
     PulseHueOptions options;
 };
 
@@ -196,14 +198,20 @@ void cycleHues() {
 void pulseHue() {
     CycleSteps steps = get_cycle_steps(state.value.pulse_hue.options.period);
 
-    unsigned int value = 255.0 * sin(state.value.pulse_hue.theta / 2);
-    setAllPixels(state.value.pulse_hue.options.hue, 255, value);
-    state.value.pulse_hue.theta += steps.step;
-    while (state.value.pulse_hue.theta > TAU) {
-        state.value.pulse_hue.theta -= TAU;
+    if (state.value.pulse_hue.wait_left > 0) {
+        delay(min(MAX_DELAY, state.value.pulse_hue.wait_left));
+        state.value.pulse_hue.wait_left -= MAX_DELAY;
+    } else {
+        unsigned int value = 255.0 * sin(state.value.pulse_hue.theta / 2);
+        setAllPixels(state.value.pulse_hue.options.hue, 255, value);
+        state.value.pulse_hue.theta += steps.step;
+        if (state.value.pulse_hue.theta > TAU) {
+            state.value.pulse_hue.theta = 0;
+            state.value.pulse_hue.wait_left = state.value.pulse_hue.options.wait;
+        }
+        pixels.show();
+        delay(steps.wait);
     }
-    pixels.show();
-    delay(steps.wait);
 }
 
 void showRGB() {
@@ -301,6 +309,7 @@ void writeQueryResponse(unsigned int *error) {
         case Command::PulseHue:
             write<unsigned int>(state.value.pulse_hue.options.hue, error);
             write<unsigned long>(state.value.pulse_hue.options.period, error);
+            write<unsigned long>(state.value.pulse_hue.options.wait, error);
             break;
         case Command::ShowRGB:
             write<byte>(state.value.show_rgb.options.red, error);
@@ -335,6 +344,7 @@ void readCycleHuesState(unsigned int *error) {
 void readPulseHueState(unsigned int *error) {
     unsigned int hue = read<unsigned int>(error);
     unsigned long period = read<unsigned long>(error);
+    unsigned long wait = read<unsigned long>(error);
     if (period == 0) {
         *error |= Error::ZeroPeriodError;
     }
@@ -342,7 +352,7 @@ void readPulseHueState(unsigned int *error) {
         return;
     }
 
-    state.value.pulse_hue = { 0.0, { hue, period } };
+    state.value.pulse_hue = { 0.0, 0, { hue, period, wait } };
     state.command = Command::PulseHue;
 }
 

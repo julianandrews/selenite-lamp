@@ -52,6 +52,9 @@ pub struct PulseHueOptions {
     /// The pulse period in milliseconds.
     #[clap(default_value = "5000")]
     period: u32,
+    /// The wait time in milliseconds between pulses.
+    #[clap(default_value = "0")]
+    wait: u32,
 }
 
 #[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
