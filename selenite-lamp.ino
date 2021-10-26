@@ -88,7 +88,7 @@ struct CycleHuesState {
 
 struct GleamOptions {
     unsigned long period;
-    unsigned long rate;
+    float frequency;
 };
 
 struct GleamState {
@@ -232,7 +232,7 @@ void gleam() {
         unsigned int hue = state.value.gleam.hue[i % GLEAM_GROUPS];
         unsigned int value = 255.0 * sin(state.value.gleam.theta[i % GLEAM_GROUPS] / 2);
         pixels.setPixelColor(i, pixels.ColorHSV(hue, 255, value));
-        if (state.value.gleam.theta[i % GLEAM_GROUPS] || random(state.value.gleam.options.rate) == 0) {
+        if (state.value.gleam.theta[i % GLEAM_GROUPS] || randomEvent(state.value.gleam.options.frequency)) {
             state.value.gleam.theta[i % GLEAM_GROUPS] += steps.step;
         }
         if (state.value.gleam.theta[i % GLEAM_GROUPS] > TAU) {
@@ -242,6 +242,10 @@ void gleam() {
     }
     pixels.show();
     delay(steps.wait);
+}
+
+bool randomEvent(float frequency) {
+    return (float)random(INT32_MAX) / (float)INT32_MAX < frequency;
 }
 
 void error() {
@@ -318,7 +322,7 @@ void writeQueryResponse(unsigned int *error) {
             break;
         case Command::Gleam:
             write<unsigned long>(state.value.gleam.options.period, error);
-            write<unsigned long>(state.value.gleam.options.rate, error);
+            write<float>(state.value.gleam.options.frequency, error);
             break;
         case Command::Error:
             write<unsigned int>(state.value.error.options.error, error);
@@ -372,7 +376,7 @@ void readShowRGBState(unsigned int *error) {
 
 void readGleamState(unsigned int *error) {
     unsigned long period = read<unsigned long>(error);
-    unsigned long rate = read<unsigned long>(error);
+    float frequency = read<float>(error);
     if (*error) {
         return;
     }
@@ -380,7 +384,7 @@ void readGleamState(unsigned int *error) {
         state.value.gleam.theta[i] = 0;
         state.value.gleam.hue[i] = random(UINT16_MAX);
     }
-    state.value.gleam.options = { period, rate };
+    state.value.gleam.options = { period, frequency };
     state.command = Command::Gleam;
 }
 

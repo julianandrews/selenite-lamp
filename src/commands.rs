@@ -76,9 +76,9 @@ pub struct GleamOptions {
     /// The cycle period in milliseconds.
     #[clap(default_value = "10000")]
     period: u32,
-    /// The inverse probability of a pulse starting.
-    #[clap(default_value = "500")]
-    rate: u32,
+    /// The probability of a pulse starting.
+    #[clap(default_value = "0.002")]
+    frequency: f32,
 }
 
 #[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
