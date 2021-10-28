@@ -20,7 +20,7 @@ pub enum Command {
     PulseHue(PulseHueOptions) = 4,
     /// Show a specific RGB color
     ShowRGB(ShowRGBOptions) = 5,
-    /// Gleam
+    /// Randomly pulse groups of leds to create a gleaming effect
     Gleam(GleamOptions) = 6,
     #[clap(setting = AppSettings::Hidden)]
     BashCompletion,
@@ -79,6 +79,9 @@ pub struct GleamOptions {
     /// The probability of a pulse starting.
     #[clap(default_value = "0.002")]
     frequency: f32,
+    /// The number of independent LED groups to use.
+    #[clap(default_value = "4")]
+    num_groups: u16,
 }
 
 #[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
