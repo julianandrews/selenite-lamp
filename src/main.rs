@@ -5,18 +5,18 @@ mod serial;
 
 use std::io::Write;
 
-use clap::{crate_authors, crate_version, AppSettings, Clap};
+use clap::{AppSettings, IntoApp, Parser};
 
 use commands::Command;
 
 fn main() {
     let opts = Options::parse();
     if let Command::BashCompletion = opts.command {
-        use clap::IntoApp;
-        use clap_generate::generators::Bash;
-        clap_generate::generate::<Bash, _>(
-            &mut Options::into_app(),
-            "selenite-lamp",
+        let cmd = &mut Options::into_app();
+        clap_complete::generate(
+            clap_complete::Shell::Bash,
+            cmd,
+            cmd.get_name().to_string(),
             &mut std::io::stdout(),
         );
         return;
@@ -54,9 +54,8 @@ fn main() {
     }
 }
 
-#[derive(Clap, Debug, Clone)]
-#[clap(version = crate_version!(), author = crate_authors!())]
-#[clap(setting = AppSettings::ColoredHelp)]
+#[derive(Parser, Debug, Clone)]
+#[clap(version, setting = AppSettings::DeriveDisplayOrder)]
 pub struct Options {
     /// Serial port to connect to. Something like `/dev/ttyUSB0` or `COM1`.
     #[clap(env = "SELENITE_PORT")]

@@ -1,9 +1,9 @@
 use std::io::Read;
 
 use bincode::Options;
-use clap::{AppSettings, Clap};
+use clap::{AppSettings, Parser, Subcommand};
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, Subcommand, serde::Deserialize, serde::Serialize)]
 #[clap(setting = AppSettings::ColoredHelp)]
 #[serde(rename_all = "kebab-case")]
 #[repr(u8)]
@@ -42,10 +42,10 @@ impl Command {
     }
 }
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct StopOptions {}
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct PulseHueOptions {
     /// The hue to pulse. 0-65535. Circles the color wheel starting at red.
     hue: u16,
@@ -57,21 +57,21 @@ pub struct PulseHueOptions {
     wait: u32,
 }
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct CycleHuesOptions {
     /// The cycle period in milliseconds.
     #[clap(default_value = "5000")]
     period: u32,
 }
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ShowRGBOptions {
     red: u8,
     green: u8,
     blue: u8,
 }
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct GleamOptions {
     /// The cycle period in milliseconds.
     #[clap(default_value = "10000")]
@@ -84,10 +84,10 @@ pub struct GleamOptions {
     num_groups: u16,
 }
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Color {}
 
-#[derive(Clap, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ErrorOptions {
     error_code: u16,
 }
