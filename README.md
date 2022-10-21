@@ -50,30 +50,29 @@ This will generate a standalone binary at `target/release/selenite-lamp`.
 ## CLI Usage
 
 ```
-selenite-lamp 0.1.0
-
-Julian Andrews <jandrews271@gmail.com>
+selenite-lamp 0.2.1
 
 USAGE:
-    selenite-lamp [FLAGS] <SERIAL_PORT> <SUBCOMMAND>
+    selenite-lamp [OPTIONS] <SERIAL_PORT> <SUBCOMMAND>
 
 ARGS:
     <SERIAL_PORT>    Serial port to connect to. Something like `/dev/ttyUSB0` or `COM1` [env:
-                     SELENITE_PORT=]
+                     SELENITE_PORT=/dev/selenite-lamp]
 
-FLAGS:
-    -h, --help       Print help information
+OPTIONS:
     -v, --verbose    Print verbose output
+    -h, --help       Print help information
     -V, --version    Print version information
 
 SUBCOMMANDS:
-    cycle-hues    Cycle through the rainbow
-    gleam         Randomly pulse groups of leds to create a gleaming effect
-    help          Print this message or the help of the given subcommand(s)
-    pulse-hue     Pulse a specific hue
     query         Query the current command state
-    show-rgb      Show a specific RGB color
     stop          Turn off the lights
+    cycle-hues    Cycle through the rainbow
+    pulse-hue     Pulse a specific hue
+    show-rgb      Show a specific RGB color
+    gleam         Randomly pulse groups of leds to create a gleaming effect
+    watch-file    Watch the provided file for json, and update when it changes
+    help          Print this message or the help of the given subcommand(s)
 ```
 
 Most subcommands take parameters. Use `selenite-lamp help <SUBCOMMAND>` for
