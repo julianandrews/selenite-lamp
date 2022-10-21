@@ -19,9 +19,12 @@ pub enum Command {
     /// Pulse a specific hue
     PulseHue(PulseHueOptions) = 4,
     /// Show a specific RGB color
-    ShowRGB(ShowRGBOptions) = 5,
+    ShowRgb(ShowRgbOptions) = 5,
     /// Randomly pulse groups of leds to create a gleaming effect
     Gleam(GleamOptions) = 6,
+    /// Watch the provided file for json, and update when it changes
+    WatchFile(WatchFileOptions),
+
     #[clap(setting = AppSettings::Hidden)]
     BashCompletion,
 }
@@ -65,7 +68,7 @@ pub struct CycleHuesOptions {
 }
 
 #[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct ShowRGBOptions {
+pub struct ShowRgbOptions {
     red: u8,
     green: u8,
     blue: u8,
@@ -90,4 +93,9 @@ pub struct Color {}
 #[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct ErrorOptions {
     error_code: u16,
+}
+
+#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct WatchFileOptions {
+    pub file: std::path::PathBuf,
 }
