@@ -77,7 +77,7 @@ fn update_from_file(path: &std::path::Path, serial_port: &str, verbose: bool) ->
             return;
         }
     };
-    println!("Sending commend {}", json.trim());
+    println!("Sending command {}", json.trim());
     if let Err(error) = send_command(&command, serial_port, verbose) {
         eprintln!("{:?}", error);
     }
