@@ -6,7 +6,7 @@ mod serial;
 use std::io::Write;
 
 use anyhow::{Context, Result};
-use notify_debouncer_mini::new_debouncer;
+use notify::Watcher;
 
 use clap::{AppSettings, IntoApp, Parser};
 use commands::Command;
@@ -50,16 +50,24 @@ fn send_command(command: &Command, serial_port: &str, verbose: bool) -> Result<(
 fn watch_file(path: &std::path::Path, serial_port: &str, verbose: bool) -> Result<()> {
     let (tx, rx) = std::sync::mpsc::channel();
 
-    let mut debouncer = new_debouncer(std::time::Duration::from_millis(50), None, tx)?;
-    debouncer
-        .watcher()
-        .watch(path, notify::RecursiveMode::NonRecursive)?;
+    let mut watcher = notify::RecommendedWatcher::new(tx, notify::Config::default())?;
+    watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
 
     update_from_file(path, serial_port, verbose);
-    for _events in rx {
-        update_from_file(path, serial_port, verbose);
+    loop {
+        match rx.recv() {
+            Ok(_event) => {
+                update_from_file(path, serial_port, verbose);
+                // Debounce. For some reason the notify-debouncer-mini crate tanks performnance,
+                // but it's simple enough to wait a few milliseconds and then clear the channel.
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                if let Err(error) = rx.try_recv() {
+                    eprintln!("Error watching file: {:?}", error);
+                }
+            }
+            Err(error) => eprintln!("Error watching file: {:?}", error),
+        }
     }
-    unreachable!();
 }
 
 fn update_from_file(path: &std::path::Path, serial_port: &str, verbose: bool) -> () {
