@@ -1,10 +1,12 @@
+#![feature(arbitrary_enum_discriminant)]
+
 use std::io::Read;
 
 use bincode::Options;
-use clap::{AppSettings, Parser, Subcommand};
+use clap::{AppSettings, Parser};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Subcommand, serde::Deserialize, serde::Serialize)]
-#[clap(setting = AppSettings::ColoredHelp)]
+#[derive(Debug, Clone, PartialEq, Parser, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 #[repr(u8)]
 pub enum Command {
@@ -22,19 +24,14 @@ pub enum Command {
     ShowRgb(ShowRgbOptions) = 5,
     /// Randomly pulse groups of leds to create a gleaming effect
     Gleam(GleamOptions) = 6,
-    /// Watch the provided file for json, and update when it changes
-    WatchFile(WatchFileOptions),
-
-    #[clap(setting = AppSettings::Hidden)]
-    BashCompletion,
 }
 
 impl Command {
-    pub fn read(reader: impl Read) -> Result<Self, Box<bincode::ErrorKind>> {
+    pub fn from_bincode(reader: impl Read) -> Result<Self, Box<bincode::ErrorKind>> {
         Self::serializer().deserialize_from(reader)
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
+    pub fn to_bincode(&self) -> Result<Vec<u8>, Box<bincode::ErrorKind>> {
         Self::serializer().serialize(self)
     }
 
@@ -45,10 +42,10 @@ impl Command {
     }
 }
 
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct StopOptions {}
 
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct PulseHueOptions {
     /// The hue to pulse. 0-65535. Circles the color wheel starting at red.
     hue: u16,
@@ -60,21 +57,21 @@ pub struct PulseHueOptions {
     wait: u32,
 }
 
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct CycleHuesOptions {
     /// The cycle period in milliseconds.
     #[clap(default_value = "5000")]
     period: u32,
 }
 
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct ShowRgbOptions {
     red: u8,
     green: u8,
     blue: u8,
 }
 
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct GleamOptions {
     /// The cycle period in milliseconds.
     #[clap(default_value = "10000")]
@@ -87,15 +84,7 @@ pub struct GleamOptions {
     num_groups: u16,
 }
 
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct Color {}
-
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Parser, Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct ErrorOptions {
     error_code: u16,
-}
-
-#[derive(Parser, Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct WatchFileOptions {
-    pub file: std::path::PathBuf,
 }
