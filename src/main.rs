@@ -2,6 +2,7 @@ mod args;
 mod serial;
 
 use std::io::Write;
+use std::sync::mpsc;
 
 use anyhow::{Context, Result};
 use clap::{IntoApp, Parser};
@@ -47,21 +48,41 @@ fn send_command(command: &Command, serial_port: &str, verbose: bool) -> Result<(
 }
 
 fn watch_file(path: &std::path::Path, serial_port: &str, verbose: bool) -> Result<()> {
-    let (tx, rx) = std::sync::mpsc::channel();
+    use notify::event::{CreateKind, EventKind, ModifyKind, RenameMode};
+
+    let (tx, rx) = mpsc::channel();
 
     let mut watcher = notify::RecommendedWatcher::new(tx, notify::Config::default())?;
-    watcher.watch(path, notify::RecursiveMode::NonRecursive)?;
+    let to_watch = path
+        .parent()
+        .ok_or(anyhow::anyhow!("Failed to find watch directory"))?;
+    watcher.watch(to_watch, notify::RecursiveMode::NonRecursive)?;
 
     update_from_file(path, serial_port, verbose);
     loop {
-        match rx.recv() {
-            Ok(_event) => {
-                update_from_file(path, serial_port, verbose);
-                // Debounce. For some reason the notify-debouncer-mini crate tanks performance,
-                // but it's simple enough to wait a few milliseconds and then clear the channel.
-                std::thread::sleep(std::time::Duration::from_millis(50));
-                if let Err(error) = rx.try_recv() {
-                    eprintln!("Error watching file: {:?}", error);
+        match rx.recv()? {
+            Ok(event) => {
+                if matches!(
+                    event.kind,
+                    EventKind::Create(CreateKind::File)
+                        | EventKind::Modify(
+                            ModifyKind::Data(_)
+                                | ModifyKind::Metadata(_)
+                                | ModifyKind::Name(RenameMode::To)
+                        )
+                ) && event.paths.iter().any(|p| p.as_path() == path)
+                {
+                    // Debounce. For some reason the notify-debouncer-mini crate tanks performance,
+                    // but it's simple enough to wait a few milliseconds and then clear the channel.
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                    loop {
+                        match rx.try_recv() {
+                            Ok(_) => {}
+                            Err(mpsc::TryRecvError::Empty) => break,
+                            Err(e) => Err(e)?,
+                        }
+                    }
+                    update_from_file(path, serial_port, verbose);
                 }
             }
             Err(error) => eprintln!("Error watching file: {:?}", error),
@@ -73,14 +94,14 @@ fn update_from_file(path: &std::path::Path, serial_port: &str, verbose: bool) ->
     let json = match std::fs::read_to_string(path) {
         Ok(json) => json,
         Err(error) => {
-            eprintln!("Failed to read file: {:?}", error);
+            eprintln!("Failed to read file {:?}: {:?}", path, error);
             return;
         }
     };
     let command: Command = match serde_json::de::from_str(&json) {
         Ok(command) => command,
         Err(error) => {
-            eprintln!("Failed to parse file: {:?}", error);
+            eprintln!("Failed to parse file {:?}: {:?}", path, error);
             return;
         }
     };
