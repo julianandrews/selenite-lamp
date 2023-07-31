@@ -14,9 +14,12 @@ use selenite_lamp_commands::Command;
 fn main() -> Result<()> {
     let args = Args::parse();
     match &args.command {
-        CliCommand::BashCompletion => Ok(print_bash_completion(&mut Args::into_app())),
+        CliCommand::BashCompletion => {
+            print_bash_completion(&mut Args::into_app());
+            Ok(())
+        }
         CliCommand::WatchFile(opts) => watch_file(&opts.file, &args.serial_port, args.verbose),
-        CliCommand::Command(command) => send_command(&command, &args.serial_port, args.verbose),
+        CliCommand::Command(command) => send_command(command, &args.serial_port, args.verbose),
     }
 }
 
@@ -90,7 +93,7 @@ fn watch_file(path: &std::path::Path, serial_port: &str, verbose: bool) -> Resul
     }
 }
 
-fn update_from_file(path: &std::path::Path, serial_port: &str, verbose: bool) -> () {
+fn update_from_file(path: &std::path::Path, serial_port: &str, verbose: bool) {
     let json = match std::fs::read_to_string(path) {
         Ok(json) => json,
         Err(error) => {

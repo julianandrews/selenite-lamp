@@ -1,5 +1,3 @@
-#![feature(arbitrary_enum_discriminant)]
-
 use std::io::Read;
 
 use bincode::Options;
